@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "h2csv": {
+      "commandName": "Project",
+      "commandLineArgs": "\"..\\..\\..\\interface.h\""
+    },
+    "h2sv usage": {
+      "commandName": "Project",
+      "commandLineArgs": "/?"
+    }
+  }
+}
