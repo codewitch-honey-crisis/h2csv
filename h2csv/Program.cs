@@ -193,8 +193,12 @@ internal partial class Program
         {
             hname = Path.GetFileName(GetFilename(Output)).ToUpperInvariant();
         }
+        Console.WriteLine("#ifndef " + hname + "_H");
+        Console.WriteLine("#define " + hname + "_H");
         Console.Write("#define "+hname+"_CSV ");
         _WriteLiteral(sb.ToString(),Console.Out);
+        Console.WriteLine();
+        Console.WriteLine("#endif // " + hname + "_H");
         return;
 
     }
