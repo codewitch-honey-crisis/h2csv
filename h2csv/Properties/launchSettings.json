@@ -2,7 +2,7 @@
   "profiles": {
     "h2csv": {
       "commandName": "Project",
-      "commandLineArgs": "\"..\\..\\..\\interface.h\""
+      "commandLineArgs": "\"..\\..\\..\\interface.h\" /header"
     },
     "h2sv usage": {
       "commandName": "Project",

@@ -1,4 +1,5 @@
-﻿using VisualFA;
+﻿using System.Text;
+using VisualFA;
 
 internal partial class Program
 {
@@ -6,6 +7,9 @@ internal partial class Program
     static TextReader Input { get; set; } = Console.In;
     [CmdArg]
     static TextWriter Output { get; set; } = Console.Out;
+    [CmdArg(Description = "Generate a header file")]
+    static bool Header { get; set; } = false;
+       
     struct _Field
     {
         public string RawType;
@@ -153,21 +157,89 @@ internal partial class Program
                 }
             }
         }
-        foreach(var s in structs)
+        if (!Header)
+        {
+            foreach (var s in structs)
+            {
+                if (s.Key == "data_packet" || s.Key == "command_packet" || s.Key == "config_packet")
+                {
+                    foreach (var f in s.Value)
+                    {
+                        Output.Write("\"" + f.Name + "\", ");
+                        Output.Write("\"" + f.RawType + "\", ");
+                        Output.WriteLine(f.RawLength == 0 ? 4 : f.RawLength);
+                    }
+                    Output.WriteLine();
+                }
+            }
+            return;
+        }
+        var sb = new StringBuilder();
+        foreach (var s in structs)
         {
             if (s.Key == "data_packet" || s.Key == "command_packet" || s.Key == "config_packet")
             {
                 foreach (var f in s.Value)
                 {
-                    Output.Write("\""+f.Name+"\", ");
-                    Output.Write("\"" + f.RawType + "\", ");
-                    Output.WriteLine(f.RawLength==0?4:f.RawLength);
+                    sb.Append("\"" + f.Name + "\", ");
+                    sb.Append("\"" + f.RawType + "\", ");
+                    sb.AppendLine(Convert.ToString(f.RawLength == 0 ? 4 : f.RawLength));
                 }
-                Output.WriteLine();
+                sb.AppendLine();
             }
         }
+        string hname = "OUTPUT";
+        if(Output!=Console.Out)
+        {
+            hname = Path.GetFileName(GetFilename(Output)).ToUpperInvariant();
+        }
+        Console.Write("#define "+hname+"_CSV ");
+        _WriteLiteral(sb.ToString(),Console.Out);
+        return;
+
     }
-    
+    static void _WriteLiteral(string input,TextWriter result)
+    {
+        result.Write("\"");
+        int i = 1;
+        foreach (var c in input)
+        {
+            switch (c)
+            {
+                case '\"': result.Write("\\\""); break;
+                case '\\': result.Write(@"\\"); break;
+                case '\0': result.Write(@"\0"); break;
+                case '\a': result.Write(@"\a"); break;
+                case '\b': result.Write(@"\b"); break;
+                case '\f': result.Write(@"\f"); break;
+                case '\n': result.Write(@"\n"); break;
+                case '\r': result.Write(@"\r"); break;
+                case '\t': result.Write(@"\t"); break;
+                case '\v': result.Write(@"\v"); break;
+                default:
+                    // ASCII printable character
+                    if (c >= 0x20 && c <= 0x7e)
+                    {
+                        result.Write(c);
+                        ++i;
+                        // As UTF16 escaped character
+                    }
+                    else
+                    {
+                        result.Write(@"\x");
+                        result.Write(((int)c).ToString("x2"));
+                        i += 4;
+                    }
+                    break;
+            }
+            if(i>40)
+            {
+                i = 0;
+                result.WriteLine(@"\");
+            }
+        }
+        result.Write("\"");
+    }
     [FARule(@"\/\/[^\n]*")]  // 0
     [FARule(@"\/\*",BlockEnd = @"\*\/")] // 1
     [FARule(@"#[^\n]*")] // 2
