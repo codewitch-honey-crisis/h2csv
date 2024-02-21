@@ -1,4 +1,6 @@
-﻿using System.Text;
+﻿#nullable disable
+#pragma warning disable CS8826 
+using System.Text;
 using VisualFA;
 
 internal partial class Program
@@ -161,7 +163,7 @@ internal partial class Program
         {
             foreach (var s in structs)
             {
-                if (s.Key == "data_packet" || s.Key == "command_packet" || s.Key == "config_packet")
+                if (s.Key == "data_packet" || s.Key == "status_packet" || s.Key == "config_packet")
                 {
                     foreach (var f in s.Value)
                     {
@@ -177,7 +179,7 @@ internal partial class Program
         var sb = new StringBuilder();
         foreach (var s in structs)
         {
-            if (s.Key == "data_packet" || s.Key == "command_packet" || s.Key == "config_packet")
+            if (s.Key == "data_packet" || s.Key == "status_packet" || s.Key == "config_packet")
             {
                 foreach (var f in s.Value)
                 {
@@ -244,6 +246,7 @@ internal partial class Program
         }
         result.Write("\"");
     }
+    
     [FARule(@"\/\/[^\n]*")]  // 0
     [FARule(@"\/\*",BlockEnd = @"\*\/")] // 1
     [FARule(@"#[^\n]*")] // 2
@@ -292,3 +295,4 @@ internal partial class Program
 
 }
 
+#pragma warning restore
