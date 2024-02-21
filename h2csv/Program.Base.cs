@@ -189,7 +189,7 @@ partial class Program
 		{
 			if (_writer == null)
 			{
-				_writer = new StreamWriter(_name, false);
+				_writer = new StreamWriter(_name, false, Encoding.UTF8);
 			}
 		}
 		public override Encoding Encoding {

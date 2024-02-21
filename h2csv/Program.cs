@@ -8,7 +8,7 @@ internal partial class Program
     [CmdArg(Ordinal = 0)]
     static TextReader Input { get; set; } = Console.In;
     [CmdArg]
-    static TextWriter Output { get; set; } = Console.Out;
+    static FileSystemInfo Output { get; set; } = null;
     [CmdArg(Description = "Generate a header file")]
     static bool Header { get; set; } = false;
        
@@ -159,22 +159,37 @@ internal partial class Program
                 }
             }
         }
-        if (!Header)
+		TextWriter output = null;
+		if (Output == null)
+		{
+			output = Console.Out;
+		}
+		else
+		{
+			output = new StreamWriter(File.OpenRead(Output.FullName), Encoding.ASCII);
+		}
+		if (!Header)
         {
+            
             foreach (var s in structs)
             {
                 if (s.Key == "data_packet" || s.Key == "status_packet" || s.Key == "config_packet")
                 {
                     foreach (var f in s.Value)
                     {
-                        Output.Write("\"" + f.Name + "\", ");
-                        Output.Write("\"" + f.RawType + "\", ");
-                        Output.WriteLine(f.RawLength == 0 ? 4 : f.RawLength);
+                        output.Write("\"" + f.Name + "\", ");
+                        output.Write("\"" + f.RawType + "\", ");
+                        output.WriteLine(f.RawLength == 0 ? 4 : f.RawLength);
                     }
-                    Output.WriteLine();
+                    output.WriteLine();
                 }
             }
+            if(output is StreamWriter)
+            {
+                output.Close();
+            }
             return;
+
         }
         var sb = new StringBuilder();
         foreach (var s in structs)
@@ -191,16 +206,16 @@ internal partial class Program
             }
         }
         string hname = "OUTPUT";
-        if(Output!=Console.Out)
+        if(output!=Console.Out)
         {
-            hname = Path.GetFileName(GetFilename(Output)).ToUpperInvariant();
+            hname = Path.GetFileName(GetFilename(output)).ToUpperInvariant();
         }
-        Console.WriteLine("#ifndef " + hname + "_H");
-        Console.WriteLine("#define " + hname + "_H");
-        Console.Write("#define "+hname+"_CSV ");
-        _WriteLiteral(sb.ToString(),Console.Out);
-        Console.WriteLine();
-        Console.WriteLine("#endif // " + hname + "_H");
+        output.WriteLine("#ifndef " + hname + "_H");
+        output.WriteLine("#define " + hname + "_H");
+        output.Write("#define "+hname+"_CSV ");
+        _WriteLiteral(sb.ToString(),output);
+        output.WriteLine();
+        output.WriteLine("#endif // " + hname + "_H");
         return;
 
     }
