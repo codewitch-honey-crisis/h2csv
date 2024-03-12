@@ -194,7 +194,7 @@ internal partial class Program
         var sb = new StringBuilder();
         foreach (var s in structs)
         {
-            if (s.Key == "data_packet" || s.Key == "status_packet" || s.Key == "config_packet" || s.Key == "subscribe_packet")
+            if (s.Key == "data_packet" || s.Key == "status_packet" || s.Key == "config_packet")
             {
                 foreach (var f in s.Value)
                 {
