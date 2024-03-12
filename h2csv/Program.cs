@@ -166,7 +166,7 @@ internal partial class Program
 		}
 		else
 		{
-			output = new StreamWriter(File.OpenRead(Output.FullName), Encoding.ASCII);
+			output = new StreamWriter(File.Open(Output.FullName,FileMode.OpenOrCreate), Encoding.ASCII);
 		}
 		if (!Header)
         {
@@ -194,7 +194,7 @@ internal partial class Program
         var sb = new StringBuilder();
         foreach (var s in structs)
         {
-            if (s.Key == "data_packet" || s.Key == "status_packet" || s.Key == "config_packet")
+            if (s.Key == "data_packet" || s.Key == "status_packet" || s.Key == "config_packet" || s.Key == "subscribe_packet")
             {
                 foreach (var f in s.Value)
                 {
@@ -208,7 +208,7 @@ internal partial class Program
         string hname = "OUTPUT";
         if(output!=Console.Out)
         {
-            hname = Path.GetFileName(GetFilename(output)).ToUpperInvariant();
+            hname = Path.GetFileNameWithoutExtension(GetFilename(output)).ToUpperInvariant();
         }
         output.WriteLine("#ifndef " + hname + "_H");
         output.WriteLine("#define " + hname + "_H");
@@ -216,9 +216,12 @@ internal partial class Program
         _WriteLiteral(sb.ToString(),output);
         output.WriteLine();
         output.WriteLine("#endif // " + hname + "_H");
-        return;
+		if (output is StreamWriter)
+		{
+			output.Close();
+		}
 
-    }
+	}
     static void _WriteLiteral(string input,TextWriter result)
     {
         result.Write("\"");
