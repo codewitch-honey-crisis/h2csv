@@ -1,3 +1,6 @@
+// PlatformIO CLI command line for regenerating:
+// ./h2csv include/interface.h /header /output include/init_csv.h
+
 // XBee - ESP32 Interface Protocol
 // Rev 00.00.01
 // 08/01/23
@@ -10,8 +13,18 @@
 #include <stddef.h>
 
 enum struct STATUS_CODE : int32_t {
+    FOTA_FW_ABSENT = -6,
+    ACEK9_STATUS_BAD_TOPIC_HANDLER = -5,
+    UNKOWNDATAFROMSERVER = -4,
+    UNSUPPORTEDTYPEININIT = -3,
+    XBEE_NOT_INTIALIZED = -2,
     INVALID_COMMAND = -1,
     SUCCESS = 0,
+    XBEE_INITIALIZED = 1,
+    XBEE_CELL_CONNECTED = 2,
+    FOTA_CHECK_FW = 3,
+    FOTA_BEGIN = 4,
+    FOTA_DELETE_FILE = 5
 };
 
 enum struct COMMAND_ID : int32_t {
@@ -23,7 +36,11 @@ enum struct COMMAND_ID : int32_t {
     LOG,
     CONNECTION,
     CONFIG,
-    COMMAND
+    COMMAND,
+    SUBSCRIBE,
+    UPDATE,
+    FOTA,
+    INIT = 255
 };
 enum ACE_BOOL : uint32_t {
     ACE_FALSE = 0,
@@ -48,6 +65,15 @@ struct connect_packet
     ACE_BOOL cleanSession;                      // cleanSession | ACE_BOOL 32-bit unsigned word | 0 = False, Non-Zero = True
 };
 
+struct subscribe_packet
+{
+    constexpr static const COMMAND_ID cmd_ID = COMMAND_ID::SUBSCRIBE;
+    // uint32_t crc; (prepended to packet)      // CRC | 4 bytes | 32-bit unsigned word  | Indicates the CRC-32 value for the packet
+    char topicName[128];                        // topicName | 128 bytes | string padded by zeros | topicName to subscribe to
+    char handlerType[128];                      // handlerType | 128 bytes | string padded by zeros | Currently can be "command" or "config"
+
+};
+
 
 struct acknowledge_packet {
     constexpr static const COMMAND_ID cmd_ID = COMMAND_ID::ACKNOWLEDGE;
@@ -60,9 +86,10 @@ struct data_packet
 {
     constexpr static const COMMAND_ID cmd_ID = COMMAND_ID::DATA;
     // uint32_t crc; (prepended to packet)      // CRC | 4 bytes | 32-bit unsigned word  | Indicates the CRC-32 value for the packet
-    char TopicName[16];                         //  TopicName | 16 bytes | string padded by zeros | Topic to publish to
+    char topicName[16];                         //  TopicName | 16 bytes | string padded by zeros | Topic to publish to
     uint32_t qos;                               //  qos | 4 bytes | 32-bit unsigned word | Quality of Service
     ACE_BOOL retainFlag;                        //  retainFlag | ACE_BOOL 32-bit unsigned word | 0 = False, Non-Zero = True
+    // ================ Variable Data Below this Point =====================
     char timeStampUTC[32];                      //  timeStampUTC | 32 bytes | string padded by zeros |
     ACE_BOOL powerOn;                           //  powerOn | ACE_BOOL 32-bit unsigned word | 0 = False, Non-Zero = True
     ACE_BOOL ignitionOn;                        //  ignitionOn | ACE_BOOL 32-bit unsigned word | 0 = False, Non-Zero = True
@@ -76,6 +103,7 @@ struct data_packet
     uint32_t batteryVoltage;                    //  batteryVoltage | 4 bytes | 32-bit unsigned word | 
     char doorPopUTC[32];                        //  doorPopUTC | 32 bytes | string padded by zeros |
     uint32_t version;                           //  version | 4 bytes | 32-bit unsigned word | 
+    ACE_BOOL newstuff;
 
 };
 
@@ -83,9 +111,10 @@ struct status_packet
 {
     constexpr static const COMMAND_ID cmd_ID = COMMAND_ID::STATUS;
     // uint32_t crc; (prepended to packet)      // CRC | 4 bytes | 32-bit unsigned word  | Indicates the CRC-32 value for the packet
-    char TopicName[16];                         //  TopicName | 16 bytes | string padded by zeros |
+    char topicName[16];                         //  TopicName | 16 bytes | string padded by zeros |
     uint32_t qos;                               //  qos | 4 bytes | 32-bit unsigned word | 
     ACE_BOOL retainFlag;                        //  retainFlag | ACE_BOOL 32-bit unsigned word | 0 = False, Non-Zero = True
+    // ================ Variable Data Below this Point =====================
     char unitID[32];                            //  unitID | 32 bytes | string padded by zeros |
     char unitname[16];                          //  unitname | 16 bytes | string padded by zeros |
     char unitFirmwareVersion[16];               //  unitFirmwareVersion | 16 bytes | string padded by zeros |
@@ -102,7 +131,7 @@ struct log_packet
 {
     constexpr static const COMMAND_ID cmd_ID = COMMAND_ID::LOG;
     // uint32_t crc; (prepended to packet)      // CRC | 4 bytes | 32-bit unsigned word  | Indicates the CRC-32 value for the packet
-    char TopicName[16];                         //  TopicName | 16 bytes | string padded by zeros |
+    char topicName[16];                         //  TopicName | 16 bytes | string padded by zeros |
     uint32_t qos;                               //  qos | 4 bytes | 32-bit unsigned word |
     ACE_BOOL retainFlag;                        //  retainFlag | ACE_BOOL 32-bit unsigned word | 0 = False, Non-Zero = True
     char timeStampUTC[32];                      //  timeStampUTC | 32 bytes | string padded by zeros |
@@ -114,7 +143,7 @@ struct connection_packet
 {
     constexpr static const COMMAND_ID cmd_ID = COMMAND_ID::CONNECTION;
     // uint32_t crc; (prepended to packet)      // CRC | 4 bytes | 32-bit unsigned word  | Indicates the CRC-32 value for the packet
-    char TopicName[16];                         // TopicName | 16 bytes | string padded by zeros |
+    char topicName[16];                         // TopicName | 16 bytes | string padded by zeros |
     uint32_t qos;                               // qos | 4 bytes | 32-bit unsigned word | 
     ACE_BOOL retainFlag;                        // retainFlag | ACE_BOOL 32-bit unsigned word | 0 = False, Non-Zero = True
     char status[16];                            // status | 16 bytes | string padded by zeros |
@@ -124,9 +153,10 @@ struct config_packet
 {
     constexpr static const COMMAND_ID cmd_ID = COMMAND_ID::CONFIG;
     // uint32_t crc; (prepended to packet)      // CRC | 4 bytes | 32-bit unsigned word  | Indicates the CRC-32 value for the packet
-    char TopicName[16];                         // TopicName | 16 bytes | string padded by zeros |
+    char topicName[16];                         // TopicName | 16 bytes | string padded by zeros |
     uint32_t qos;                               // qos  | 4 bytes | 32-bit unsigned word | 
     ACE_BOOL retainFlag;                        // retainFlag | ACE_BOOL 32-bit unsigned word | 0 = False, Non-Zero = True
+    // ================ Variable Data Below this Point =====================
     char serverDomain[128];                     // serverDomain | 128 bytes | string padded by zeros |
     char firmwareVersion[16];                   // firmwareVersion | 16 bytes | string padded by zeros |
     char firmwareChecksum[32];                  // firmwareChecksum | 32 bytes | string padded by zeros |
@@ -147,10 +177,36 @@ struct command_packet
 {
     constexpr static const COMMAND_ID cmd_ID = COMMAND_ID::COMMAND;
     // uint32_t crc; (prepended to packet)      // CRC | 4 bytes | 32-bit unsigned word  | Indicates the CRC-32 value for the packet
-    char TopicName[16];                         // TopicName | 16 bytes | string padded by zeros |
+    char topicName[16];                         // TopicName | 16 bytes | string padded by zeros |
     uint32_t qos;                               // qos | 4 bytes | 32-bit unsigned word | 
     ACE_BOOL retainFlag;                        // retainFlag | ACE_BOOL 32-bit unsigned word | 0 = False, Non-Zero = True
     char command[128];                          // command | 128 bytes | string padded by zeros |
+};
+
+struct init_packet
+{
+    constexpr static const COMMAND_ID cmd_ID = COMMAND_ID::INIT;
+    // uint32_t crc; (prepended to packet)      // CRC | 4 bytes | 32-bit unsigned word  | Indicates the CRC-32 value for the packet
+    // csv files 
+    ACE_BOOL dummy;
+};
+
+// A series of these is sent one after another until the entire update firmware file is sent. Any other message cancels the update
+// when it's complete a final packet with size of zero should be sent
+struct update_packet
+{
+    constexpr static const COMMAND_ID cmd_ID = COMMAND_ID::UPDATE;
+    // uint32_t crc; (prepended to packet)      // CRC | 4 bytes | 32-bit unsigned word  | Indicates the CRC-32 value for the packet
+    uint32_t size; // the number of significant bytes in the data field
+    uint8_t data[1024]; // preferably 8192
+};
+
+// FOTA Packet is used to communicate the FOTA process steps
+struct fota_packet
+{
+    constexpr static const COMMAND_ID cmd_ID = COMMAND_ID::FOTA;
+    // uint32_t crc; (prepended to packet)      // CRC | 4 bytes | 32-bit unsigned word  | Indicates the CRC-32 value for the packet
+    STATUS_CODE fotaStatus;
 };
 
 #endif // INTERFACE_H

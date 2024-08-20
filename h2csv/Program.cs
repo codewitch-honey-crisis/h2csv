@@ -59,6 +59,32 @@ internal partial class Program
                 Console.Error.WriteLine("Header was empty of significant content.");
                 return;
             }
+            while (true)
+            {
+                while (e.Current.SymbolId != identifier)
+                {
+                    if (!e.MoveNext())
+                    {
+                        break;
+                    }
+                }
+                if(e.Current.Value=="enum" && e.MoveNext()) 
+                {
+                    _SkipTo(e, rbrace);
+                    if(!e.MoveNext())
+                    {
+                        Console.Error.WriteLine("Unterminated enum");
+                    }
+                    _Expecting(e.Current, semi);
+                    if(!e.MoveNext())
+                    {
+                        break;
+                    }
+                } else
+                {
+                    break;
+                }
+            }
             while(_SkipToId(e,"struct"))
             {
                 if(!e.MoveNext())
@@ -194,7 +220,7 @@ internal partial class Program
         var sb = new StringBuilder();
         foreach (var s in structs)
         {
-            if (s.Key == "data_packet" || s.Key == "status_packet" || s.Key == "config_packet")
+            if (s.Key == "data_packet" || s.Key == "status_packet" || s.Key == "config_packet") 
             {
                 foreach (var f in s.Value)
                 {
